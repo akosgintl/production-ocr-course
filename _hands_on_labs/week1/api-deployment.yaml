@@ -1,0 +1,60 @@
+# api-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ocr-inference-api
+  labels:
+    app: ocr-inference-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ocr-inference-api
+  template:
+    metadata:
+      labels:
+        app: ocr-inference-api
+    spec:
+      # Toleration allowing Pod to cross the workload=inference taint barrier
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "inference"
+          effect: "NoSchedule"
+      containers:
+        - name: api-server
+          image: hashicorp/http-echo:latest
+          args:
+            - "-text={\"status\":\"success\",\"service\":\"document-intelligence-api\",\"mode\":\"cpu-lab\",\"shm_mounted\":true}"
+            - "-listen=:8000"
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          # POSIX Shared Memory Mount (/dev/shm)
+          volumeMounts:
+            - mountPath: /dev/shm
+              name: dshm
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ocr-inference-service
+spec:
+  type: ClusterIP # Internal Virtual IP (Zero public internet exposure)
+  selector:
+    app: ocr-inference-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000

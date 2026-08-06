@@ -1,0 +1,25 @@
+# batch-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: document-batch-job
+spec:
+  ttlSecondsAfterFinished: 120
+  template:
+    metadata:
+      name: batch-job-runner
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: job-runner
+          image: curlimages/curl:latest
+          command:
+            - "sh"
+            - "-c"
+            - |
+              echo "🚀 Starting Batch Document Processing Job..."
+              echo "📡 Connecting to internal ClusterIP DNS: http://ocr-inference-service.default.svc.cluster.local:80"
+              RESPONSE=$(curl -s http://ocr-inference-service.default.svc.cluster.local:80)
+              echo "✅ Response received from internal API Pod:"
+              echo "$RESPONSE"
+              echo "🏁 Job completed successfully!"
