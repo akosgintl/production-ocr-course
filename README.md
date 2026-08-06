@@ -110,12 +110,15 @@ Start with account setup, then GPU quota, then the full deployment guide for you
 1. **Create your cloud account & claim free credits**
    * 🔵 [Azure Account Setup](docs/azure_onboarding.md) — the course's primary cloud
    * 🟢 [GCP Account Setup](docs/gcp_onboarding.md) — optional, if you'd rather run on Google Cloud
-2. **Request GPU quota** (T4 + A100 — this is the step most people get stuck on; free/trial accounts cannot run GPUs)
+   * 🟠 [AWS Account Setup](docs/aws_onboarding.md) — optional, if you'd rather run on Amazon Web Services
+2. **Request GPU quota** (T4 + A100/H100 — this is the step most people get stuck on; free/trial accounts cannot run GPUs)
    * 🔵 [Azure GPU Access & Quota Prerequisites](docs/azure_gpu_prereqs.md)
    * 🟢 [GCP GPU Access & Quota Prerequisites](docs/gcp_gpu_prereqs.md)
+   * 🟠 [AWS GPU Access & Quota Prerequisites](docs/aws_gpu_prereqs.md)
 3. **Deploy the pipeline**
    * 📘 [Azure Kubernetes Service (AKS) Deployment Guide](docs/aks_deployment.md)
    * 📗 [Google Kubernetes Engine (GKE) Deployment Guide](docs/gke_deployment.md)
+   * 📙 [Elastic Kubernetes Service (EKS) Deployment Guide](docs/eks_deployment.md)
    * ☁️ [Cloud Provider Comparison & Discrepancies Matrix](docs/cloud_comparison.md)
 
 ---
