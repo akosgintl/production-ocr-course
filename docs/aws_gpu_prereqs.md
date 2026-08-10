@@ -122,7 +122,7 @@ aws sts get-caller-identity
 Quota codes aren't worth memorizing — look them up dynamically each time:
 
 ```bash
-REGION=eu-west-1
+REGION=us-east-1
 
 # Find the G/VT quota code and request 16 vCPU
 GVT_CODE=$(aws service-quotas list-service-quotas --service-code ec2 --region $REGION \
@@ -161,7 +161,8 @@ check the exact combination before committing.
 
 **Scan a few regions for both instance types:**
 ```bash
-for REGION in eu-west-1 eu-central-1 us-east-1 us-east-2 us-west-2; do
+# for REGION in eu-west-1 eu-central-1 us-east-1 us-east-2 us-west-2; do
+for REGION in eu-central-1 eu-central-2 eu-west-1 eu-west-2 eu-west-3 eu-south-1 eu-south-2 eu-north-1; do
   echo "=== $REGION ==="
   aws ec2 describe-instance-type-offerings \
     --location-type region \
@@ -173,7 +174,7 @@ done
 
 **Then check per-AZ, for your chosen region:**
 ```bash
-REGION=eu-west-1
+REGION=us-east-1
 aws ec2 describe-instance-type-offerings \
   --location-type availability-zone \
   --filters Name=instance-type,Values=g4dn.xlarge,p5.4xlarge \
@@ -194,7 +195,7 @@ if you're going that route, has narrower regional availability than
 ## 6. Smoke test: launch one GPU instance, confirm it boots, then terminate
 
 ```bash
-REGION=eu-west-1
+REGION=us-east-1
 KEY_NAME=ocr-smoketest-key
 
 aws ec2 create-key-pair --key-name $KEY_NAME --region $REGION \
@@ -204,7 +205,7 @@ chmod 400 $KEY_NAME.pem
 # Swap --instance-type for p4d.24xlarge to test the A100 route instead
 INSTANCE_ID=$(aws ec2 run-instances \
   --region $REGION \
-  --image-id resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp3/ami-id \
+  --image-id resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id \
   --instance-type p5.4xlarge \
   --key-name $KEY_NAME \
   --query "Instances[0].InstanceId" --output text)
@@ -226,6 +227,16 @@ rm -f $KEY_NAME.pem
   AZ/region; try a fallback from Section 5. Not your fault.
 - `VcpuLimitExceeded` → the quota request from Section 4 hasn't cleared yet —
   different problem from capacity.
+- `SsmInvalidParameter: The following aliases are invalid: ...` → the AMI alias
+  path doesn't exist. Canonical only publishes **`ebs-gp2`** for 22.04; the
+  `ebs-gp3` variant starts at 24.04. If you'd rather run 24.04, the path is
+  `/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id`.
+  List what actually exists for any release with:
+  ```bash
+  aws ssm get-parameters-by-path --recursive --region $REGION \
+    --path /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ \
+    --query "Parameters[].Name" --output text
+  ```
 
 ---
 
@@ -246,7 +257,7 @@ end of this section.**
 > is created with a **fixed** node instead.
 
 ```bash
-REGION=eu-west-1
+REGION=us-east-1
 CLUSTER=ocr-smoketest-cluster
 
 # Base cluster (no GPU, for the control plane + a CPU nodegroup)
