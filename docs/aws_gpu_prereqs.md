@@ -122,7 +122,7 @@ aws sts get-caller-identity
 Quota codes aren't worth memorizing — look them up dynamically each time:
 
 ```bash
-REGION=us-east-1
+REGION=eu-west-2
 
 # Find the G/VT quota code and request 16 vCPU
 GVT_CODE=$(aws service-quotas list-service-quotas --service-code ec2 --region $REGION \
@@ -174,7 +174,7 @@ done
 
 **Then check per-AZ, for your chosen region:**
 ```bash
-REGION=us-east-1
+REGION=eu-west-2
 aws ec2 describe-instance-type-offerings \
   --location-type availability-zone \
   --filters Name=instance-type,Values=g4dn.xlarge,p5.4xlarge \
@@ -195,12 +195,19 @@ if you're going that route, has narrower regional availability than
 ## 6. Smoke test: launch one GPU instance, confirm it boots, then terminate
 
 ```bash
-REGION=us-east-1
+REGION=eu-west-2
 KEY_NAME=ocr-smoketest-key
 
 aws ec2 create-key-pair --key-name $KEY_NAME --region $REGION \
   --query "KeyMaterial" --output text > $KEY_NAME.pem
 chmod 400 $KEY_NAME.pem
+
+# choose availability zone ${REGION}a / ${REGION}b / ${REGION}c
+SUBNET_ID=$(aws ec2 describe-subnets \
+  --region "$REGION" \
+  --filters "Name=availability-zone,Values=${REGION}b" \
+  --query 'Subnets[0].SubnetId' \
+  --output text)
 
 # Swap --instance-type for p4d.24xlarge to test the A100 route instead
 INSTANCE_ID=$(aws ec2 run-instances \
@@ -208,6 +215,7 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --image-id resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id \
   --instance-type p5.4xlarge \
   --key-name $KEY_NAME \
+  --subnet-id "$SUBNET_ID" \
   --query "Instances[0].InstanceId" --output text)
 
 aws ec2 wait instance-running --instance-ids $INSTANCE_ID --region $REGION
@@ -257,7 +265,7 @@ end of this section.**
 > is created with a **fixed** node instead.
 
 ```bash
-REGION=us-east-1
+REGION=eu-west-2
 CLUSTER=ocr-smoketest-cluster
 
 # Base cluster (no GPU, for the control plane + a CPU nodegroup)
