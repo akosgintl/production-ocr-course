@@ -20,7 +20,7 @@ spec:
               memory: "16Gi"
           env:
             - name: MODELS
-              value: "rednote-hilab/dots.mocr"
+              value: "baidu/Unlimited-OCR"
             - name: HF_TOKEN
               value: "" # Provide HF token if downloading gated models
           command: ["python3", "-c"]

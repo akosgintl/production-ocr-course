@@ -7,7 +7,7 @@ spec:
   scaleTargetRef:
     name: ocr-vlm-deployment
   minReplicaCount: 0
-  maxReplicaCount: 4
+  maxReplicaCount: 2
   cooldownPeriod: 300 # 5-minute cooldown to prevent premature node de-allocation
   pollingInterval: 10 # Poll queue metrics every 10s
   triggers:

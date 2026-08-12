@@ -11,17 +11,17 @@ labels:
   - includeSelectors: true
     pairs:
       managed-by: tnm-deployment-agent
-      system: aks-ocr-dotsmocr
+      system: aks-ocr-unlimitedocr
 
 # Define Variables in a ConfigMap (Shared by vLLM Server)
 configMapGenerator:
   - name: ocr-pipeline-config
     literals:
-      # --- vLLM Single-Step VLM Server Config ---
-      - SERVED_NAME=model
-      - MODEL_ID=rednote-hilab/dots.mocr
+      # --- vLLM OCR VLM Server Config ---
+      - SERVED_NAME=baidu/Unlimited-OCR
+      - MODEL_ID=baidu/Unlimited-OCR
       - PORT=8000
       - GPU_MEMORY=0.9
-      - MAX_MODEL_LEN=16384
-      - MAX_NUM_BATCHED_TOKENS=262144
-      - MAX_NUM_SEQS=256
+      - MAX_MODEL_LEN=32768
+      - MAX_NUM_BATCHED_TOKENS=65536
+      - MAX_NUM_SEQS=64

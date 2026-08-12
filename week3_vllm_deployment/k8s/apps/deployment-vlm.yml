@@ -23,7 +23,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: ocr-vlm-server
-          image: acrocrinference.azurecr.io/ocr-vlm-dotsmocr:latest
+          image: acrtnmweek3.azurecr.io/ocr-vlm-unlimitedocr:latest
           imagePullPolicy: Always
           securityContext:
             capabilities:
