@@ -1,0 +1,95 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-weight-ingest
+  namespace: default
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ingestor
+          image: python:3.11-slim
+          resources:
+            requests:
+              cpu: "1"
+              memory: "4Gi"
+            limits:
+              cpu: "2"
+              memory: "16Gi"
+          env:
+            - name: MODELS
+              value: "rednote-hilab/dots.mocr"
+            - name: HF_TOKEN
+              value: "" # Provide HF token if downloading gated models
+          command: ["python3", "-c"]
+          args:
+            - |
+              import os, time, sys, urllib.request, urllib.parse, json, ssl
+
+              models = os.getenv("MODELS").split(",")
+              token = os.getenv("HF_TOKEN")
+              ctx = ssl.create_default_context()
+              ctx.check_hostname = False
+              ctx.verify_mode = ssl.CERT_NONE
+
+              for model_id in models:
+                  dest_dir = f"/mnt/models/{model_id}"
+                  print(f"🚀 Starting ingestion for {model_id} into {dest_dir}")
+                  os.makedirs(dest_dir, exist_ok=True)
+
+                  try:
+                      api_url = f"https://huggingface.co/api/models/{model_id}"
+                      req = urllib.request.Request(api_url)
+                      if token: req.add_header("Authorization", f"Bearer {token}")
+                      
+                      with urllib.request.urlopen(req, context=ctx) as response:
+                          data = json.loads(response.read().decode())
+                          files = [s["rfilename"] for s in data["siblings"]]
+                      
+                      print(f"📦 Found {len(files)} files for {model_id}.")
+
+                      for i, filename in enumerate(files):
+                          quoted_filename = urllib.parse.quote(filename)
+                          url = f"https://huggingface.co/{model_id}/resolve/main/{quoted_filename}"
+                          local_path = os.path.join(dest_dir, filename)
+                          os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                          
+                          if os.path.islink(local_path):
+                              try: os.unlink(local_path)
+                              except Exception: pass
+
+                          if os.path.exists(local_path) and not os.path.islink(local_path) and os.path.getsize(local_path) > 100:
+                              print(f"  [{i+1}/{len(files)}] {filename}... [SKIPPED]")
+                              continue
+
+                          print(f"  [{i+1}/{len(files)}] {filename}...", end="", flush=True)
+                          for attempt in range(3):
+                              try:
+                                  file_req = urllib.request.Request(url)
+                                  if token: file_req.add_header("Authorization", f"Bearer {token}")
+                                  with urllib.request.urlopen(file_req, context=ctx) as r, open(local_path, "wb") as f:
+                                      while True:
+                                          chunk = r.read(4 * 1024 * 1024)
+                                          if not chunk: break
+                                          f.write(chunk)
+                                  print(" [DONE]")
+                                  break
+                              except Exception as e:
+                                  if attempt == 2: raise e
+                                  print(f" [RETRY {attempt+1}]", end="", flush=True)
+                                  time.sleep(5)
+
+                      print(f"✅ Ingestion complete for {model_id}")
+
+                  except Exception as e:
+                      print(f"\n❌ Fatal Error for {model_id}: {e}")
+                      sys.exit(1)
+          volumeMounts:
+            - name: model-weights
+              mountPath: /mnt/models
+      volumes:
+        - name: model-weights
+          persistentVolumeClaim:
+            claimName: model-weights-pvc
