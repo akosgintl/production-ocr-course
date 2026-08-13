@@ -117,52 +117,15 @@ aws sts get-caller-identity
 3. **Request increase at account level**, enter **64** (or **96** if you're
    going the `p4d.24xlarge` A100-parity route), submit.
 
-### 4.4 CLI equivalent (look up the quota code, then request)
+### 4.4 Check where the instances are actually offered
 
-Quota codes aren't worth memorizing — look them up dynamically each time:
-
-```bash
-REGION=eu-west-2
-
-# Find the G/VT quota code and request 16 vCPU
-GVT_CODE=$(aws service-quotas list-service-quotas --service-code ec2 --region $REGION \
-  --query "Quotas[?contains(QuotaName, 'G and VT instances')].QuotaCode" --output text)
-aws service-quotas request-service-quota-increase --service-code ec2 \
-  --quota-code $GVT_CODE --desired-value 16 --region $REGION
-
-# Find the P quota code and request 64 vCPU (or 96 for p4d)
-P_CODE=$(aws service-quotas list-service-quotas --service-code ec2 --region $REGION \
-  --query "Quotas[?contains(QuotaName, 'P instances')].QuotaCode" --output text)
-aws service-quotas request-service-quota-increase --service-code ec2 \
-  --quota-code $P_CODE --desired-value 64 --region $REGION
-```
-
-### 4.5 If the request is denied or stuck pending
-
-This is common on new accounts, especially for the `P` family — it isn't an
-error. Open a **Support case** (Service Quotas console has a direct link from
-the request's status page) with a short justification:
-
-> Deploying an OCR / document-intelligence pipeline on EKS in eu-west-1. The
-> T4 (`g4dn.xlarge`) node pool handles layout extraction; the H100
-> (`p5.4xlarge`) pool handles VLM inference. Both pools autoscale with
-> scale-to-zero for cost efficiency. Requesting 16 vCPU for G/VT and 64 vCPU
-> for P instances.
-
-Request the two families as **separate cases** — G/VT usually clears fast; P
-can take longer, especially for A100/H100 sizes.
-
----
-
-## 5. Choose a region and verify availability
-
-GPU instance availability varies **by region and by Availability Zone**, so
-check the exact combination before committing.
+Before you spend a request on a region, confirm it can serve you at all —
+availability varies **by region and by Availability Zone**.
 
 **Scan a few regions for both instance types:**
 ```bash
 # for REGION in eu-west-1 eu-central-1 us-east-1 us-east-2 us-west-2; do
-for REGION in eu-central-1 eu-central-2 eu-west-1 eu-west-2 eu-west-3 eu-south-1 eu-south-2 eu-north-1; do
+for REGION in af-south-1 ap-northeast-1 ap-northeast-2 ap-northeast-3 ap-south-1 ap-southeast-1 ap-southeast-2 ca-central-1 eu-central-1 eu-central-2 eu-north-1 eu-south-1 eu-south-2 eu-west-1 eu-west-2 eu-west-3 me-central-1 me-south-1 sa-east-1 us-east-1 us-east-2 us-west-1 us-west-2; do
   echo "=== $REGION ==="
   aws ec2 describe-instance-type-offerings \
     --location-type region \
@@ -171,6 +134,8 @@ for REGION in eu-central-1 eu-central-2 eu-west-1 eu-west-2 eu-west-3 eu-south-1
     --query "InstanceTypeOfferings[].InstanceType" --output text
 done
 ```
+
+### 4.5 Narrow to an Availability Zone
 
 **Then check per-AZ, for your chosen region:**
 ```bash
@@ -192,6 +157,112 @@ if you're going that route, has narrower regional availability than
 
 ---
 
+## 5. Request the quota from the CLI
+
+### 5.1 Look up the quota code, then request
+
+Quota codes aren't worth memorizing — look them up dynamically each time:
+
+```bash
+REGION=eu-west-2
+
+# Find the G/VT quota code and request 16 vCPU
+GVT_CODE=$(aws service-quotas list-service-quotas --service-code ec2 --region $REGION \
+  --query "Quotas[?contains(QuotaName, 'G and VT instances')].QuotaCode" --output text)
+aws service-quotas request-service-quota-increase --service-code ec2 \
+  --quota-code $GVT_CODE --desired-value 16 --region $REGION
+
+# Find the P quota code and request 64 vCPU (or 96 for p4d)
+P_CODE=$(aws service-quotas list-service-quotas --service-code ec2 --region $REGION \
+  --query "Quotas[?contains(QuotaName, 'P instances')].QuotaCode" --output text)
+aws service-quotas request-service-quota-increase --service-code ec2 \
+  --quota-code $P_CODE --desired-value 64 --region $REGION
+```
+
+### 5.2 Sweep several regions at once
+
+Quotas are **per region**, so a grant in `eu-west-2` buys you nothing in
+`us-east-1`. If you don't yet know where capacity will land, request across
+every region that survived the scan in 4.4 and pick the winner later. These
+seven are the usual suspects for `g4dn` + `p5`:
+
+**Quota codes are the same in every region** — only the *values* are
+per-region. So look each code up once, then loop just the requests. (Doing the
+lookup inside the loop costs ~15s per region for an identical answer.)
+
+```bash
+REGIONS="ap-northeast-1 ap-south-1 ap-southeast-2 sa-east-1 us-east-1 us-east-2 us-west-2"
+
+# Look up once — same codes everywhere (currently L-DB2E81BA / L-417A185B)
+GVT_CODE=$(aws service-quotas list-service-quotas --service-code ec2 --region us-east-1 \
+  --query "Quotas[?contains(QuotaName,'G and VT instances')].QuotaCode" --output text | grep -m1 '^L-')
+P_CODE=$(aws service-quotas list-service-quotas --service-code ec2 --region us-east-1 \
+  --query "Quotas[?contains(QuotaName,'P instances')].QuotaCode" --output text | grep -m1 '^L-')
+echo "G/VT=$GVT_CODE  P=$P_CODE"
+
+for REGION in $REGIONS; do
+  echo "=== $REGION ==="
+  aws service-quotas request-service-quota-increase --service-code ec2 \
+    --quota-code "$GVT_CODE" --desired-value 16 --region "$REGION" \
+    --query 'RequestedQuota.[QuotaName,DesiredValue,Status]' --output text \
+    || echo "  G/VT request failed in $REGION"
+  aws service-quotas request-service-quota-increase --service-code ec2 \
+    --quota-code "$P_CODE" --desired-value 64 --region "$REGION" \
+    --query 'RequestedQuota.[QuotaName,DesiredValue,Status]' --output text \
+    || echo "  P request failed in $REGION"
+done
+```
+
+> **Don't add `| [0]` to those queries.** The CLI auto-paginates
+> `list-service-quotas` (~90 pages) and applies `--query` to **each page
+> separately**, so `[0]` returns a column of `None`s with the real code buried
+> in the middle. Passing that to `--quota-code` fails with
+> `IllegalArgumentException: QuotaCode failed to satisfy constraint`. The
+> `grep -m1 '^L-'` picks the first real code across all pages.
+
+**Paste this into a file and run `bash quota-sweep.sh`** rather than pasting it
+straight into the terminal — backslash-continued lines get mangled by
+bracketed-paste in some terminals, which produces the same confusing error.
+
+**Expect some requests to fail** — that's why each is `|| echo`'d rather than
+left to abort the loop:
+
+| Error | Meaning |
+|---|---|
+| `ResourceAlreadyExistsException` | An open request for that quota already exists in that region |
+| `AccessDeniedException` | The region is not enabled on your account (opt-in regions like `me-south-1`) |
+| `NoSuchResourceException` | That quota isn't offered in the region |
+
+Each region is a **separate case**, so a full sweep opens up to 14 tickets.
+G/VT usually auto-approves within minutes; P typically goes to manual review.
+
+**Check on them later:**
+```bash
+for REGION in $REGIONS; do
+  echo "=== $REGION ==="
+  aws service-quotas list-requested-service-quota-change-history \
+    --service-code ec2 --region "$REGION" \
+    --query 'RequestedQuotas[].[QuotaName,DesiredValue,Status]' --output table
+done
+```
+
+### 5.3 If the request is denied or stuck pending
+
+This is common on new accounts, especially for the `P` family — it isn't an
+error. Open a **Support case** (Service Quotas console has a direct link from
+the request's status page) with a short justification:
+
+> Deploying an OCR / document-intelligence pipeline on EKS in eu-west-1. The
+> T4 (`g4dn.xlarge`) node pool handles layout extraction; the H100
+> (`p5.4xlarge`) pool handles VLM inference. Both pools autoscale with
+> scale-to-zero for cost efficiency. Requesting 16 vCPU for G/VT and 64 vCPU
+> for P instances.
+
+Request the two families as **separate cases** — G/VT usually clears fast; P
+can take longer, especially for A100/H100 sizes.
+
+---
+
 ## 6. Smoke test: launch one GPU instance, confirm it boots, then terminate
 
 ```bash
@@ -205,7 +276,7 @@ chmod 400 $KEY_NAME.pem
 # choose availability zone ${REGION}a / ${REGION}b / ${REGION}c
 SUBNET_ID=$(aws ec2 describe-subnets \
   --region "$REGION" \
-  --filters "Name=availability-zone,Values=${REGION}b" \
+  --filters "Name=availability-zone,Values=${REGION}a" \
   --query 'Subnets[0].SubnetId' \
   --output text)
 
@@ -232,8 +303,8 @@ rm -f $KEY_NAME.pem
 
 - `running` → capacity is real; proceed.
 - `InsufficientInstanceCapacity` → no free capacity right now in that
-  AZ/region; try a fallback from Section 5. Not your fault.
-- `VcpuLimitExceeded` → the quota request from Section 4 hasn't cleared yet —
+  AZ/region; try a fallback from the scan in Section 4.4. Not your fault.
+- `VcpuLimitExceeded` → the quota request from Section 5 hasn't cleared yet —
   different problem from capacity.
 - `SsmInvalidParameter: The following aliases are invalid: ...` → the AMI alias
   path doesn't exist. Canonical only publishes **`ebs-gp2`** for 22.04; the
@@ -250,7 +321,7 @@ rm -f $KEY_NAME.pem
 
 ## 7. Capacity-proof cluster (disposable — not the real deployment)
 
-This proves one level up from the AZ check in Section 5: that **EKS itself**
+This proves one level up from the AZ check in Section 4.5: that **EKS itself**
 can schedule pods onto both GPU types via node groups + taints, before you
 invest time in the full build. This cluster is throwaway — **delete it at the
 end of this section.**
