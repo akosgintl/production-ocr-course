@@ -1,4 +1,3 @@
-
 # Hands-on Lab!
 
 Pick a region and a throwaway resource group name, then create the group. Everything below lands inside it, so a single delete cleans up the whole lab.
@@ -630,5 +629,3 @@ Tear it all down. Six GPU VMs bill continuously, and deleting the group takes th
 ```bash
 az group delete --name $RG --yes --no-wait
 ```
-
-
