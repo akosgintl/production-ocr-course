@@ -33,7 +33,7 @@ The deployment utilizes a **Two-Tier Isolated Node Pool Architecture** on AKS to
 # --- Core Identifiers ---
 export LOCATION="francecentral"
 export RESOURCE_GROUP="week3-dpl-rg"
-export SUBSCRIPTION_ID="344d2357-2d0a-4eef-bc7b-fff75ee7481e"
+export SUBSCRIPTION_ID="<YOUR_SUBSCRIPTION_ID>"
 export AKS_NAME="akstnmweek3"
 export ACR_NAME="acrtnmweek3"
 

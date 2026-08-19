@@ -12,7 +12,7 @@ SHELL := /bin/bash
 # --- Configuration & Environment Variables ---
 LOCATION          ?= francecentral
 RESOURCE_GROUP    ?= week3-dpl-rg
-SUBSCRIPTION_ID   ?= 344d2357-2d0a-4eef-bc7b-fff75ee7481e
+SUBSCRIPTION_ID   ?= <YOUR_SUBSCRIPTION_ID>
 AKS_NAME          ?= akstnmweek3
 ACR_NAME          ?= acrtnmweek3
 
