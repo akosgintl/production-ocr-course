@@ -89,7 +89,7 @@ We run this as a 6-week hands-on engineering cohort. The entire repository is op
 | 🧠 **2. SOTA OCR Approaches & VDU** | Single-stage end-to-end models vs. our two-stage layout-first pipeline | Evaluating GLM-OCR SDK's layout detection and measuring performance trade-offs |
 | ⚡ **3. Deploying the vLLM Inference Engine** | Continuous batching, PagedAttention, scheduling optimizations | Deploying Qwen 3.5 4B on vLLM, tuning `MAX_NUM_BATCHED_TOKENS`, chunked prefills, Multi-Token Prediction (MTP) — [standalone deployment walkthrough](week3_vllm_deployment/README.md) |
 | 🦀 **4. Rust Ingest Gateway** | High-concurrency gateways for heavy payloads; ownership, borrowing, async Rust | Building the Axum gateway (`client_rt_producer`), 10MB limits, atomic `HSET` writes to Redis — [standalone deployment walkthrough](week4_rust_gateway_deployment/README.md) |
-| 🔄 **5. Async Architectures & Zero-Copy Ingestion** | Queue buffers, dynamic batching collectors, RAM-disk transfer | Building the Python worker (`client_rt_consumer`), 100ms collection window, `/dev/shm` handoff, scale-to-zero with KEDA |
+| 🔄 **5. Async Architectures & Zero-Copy Ingestion** | Queue buffers, dynamic batching collectors, RAM-disk transfer | Building the Python worker (`client_rt_consumer`), 100ms collection window, `/dev/shm` handoff, scale-to-zero with KEDA — [standalone deployment walkthrough](week5_async_architecture_deployment/README.md) |
 | 🛡️ **6. Enterprise Gateways & Claude Code MCP** | Security boundaries, JWT verification, rate limiting, agentic workflows | Configuring Azure APIM / GCP API Gateway policies and wrapping the pipeline in an MCP server for Claude Code |
 
 <p align="center">
