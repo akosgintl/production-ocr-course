@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - apps/deployment-vlm.yml
+  - apps/deployment-gateway.yml
+  - apps/keda-scaler.yml
+  - networking/service-gateway.yml
+
+# Labels for resource grouping
+labels:
+  - includeSelectors: true
+    pairs:
+      managed-by: tnm-deployment-agent
+      system: aks-ocr-unlimitedocr
+
+# Define Variables in a ConfigMap (Shared by vLLM Server)
+configMapGenerator:
+  - name: ocr-pipeline-config
+    literals:
+      # --- vLLM OCR VLM Server Config ---
+      - SERVED_NAME=baidu/Unlimited-OCR
+      - MODEL_ID=baidu/Unlimited-OCR
+      - PORT=8000
+      - GPU_MEMORY=0.9
+      - MAX_MODEL_LEN=32768
+      - MAX_NUM_BATCHED_TOKENS=65536
+      - MAX_NUM_SEQS=64

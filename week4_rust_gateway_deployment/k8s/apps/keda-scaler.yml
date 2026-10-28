@@ -1,0 +1,59 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: ocr-vlm-scaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: ocr-vlm-deployment
+  minReplicaCount: 0
+  maxReplicaCount: 2
+  cooldownPeriod: 300 # 5-minute cooldown to prevent premature node de-allocation
+  pollingInterval: 10 # Poll queue metrics every 10s
+  triggers:
+    # 1. Warm-start during business hours (NY Time)
+    - type: cron
+      metadata:
+        timezone: America/New_York
+        start: 0 8 * * 1-5
+        end: 0 18 * * 1-5
+        desiredReplicas: "1"
+    # 2. Aggressive scaling based on vLLM Queue Depth (A100)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc:9090
+        metricName: vllm_num_requests_waiting
+        threshold: '1' # Scale out immediately if any request is queued in vLLM
+        query: sum(vllm:num_requests_waiting{kubernetes_namespace="default"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: ocr-gateway-scaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: ocr-gateway-deployment
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  cooldownPeriod: 60  # Fast scale-down after rasterization bursts finish
+  pollingInterval: 15 # Poll metrics every 15s
+  triggers:
+    # 1. Primary Indicator: CPU Utilization (Poppler vector PDF rasterization at 150 DPI)
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70" # Scale when pod CPU exceeds 70% of requested 2 cores
+    # 2. Memory Utilization (High-resolution multi-page PDF buffers)
+    - type: memory
+      metricType: Utilization
+      metadata:
+        value: "75" # Scale when pod memory exceeds 75% of requested 2Gi
+    # 3. Prometheus In-Cluster Metric: Container CPU Usage Rate
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc:9090
+        metricName: gateway_cpu_cores_active
+        threshold: '1.5' # Scale out when average container uses >= 1.5 cores
+        query: sum(rate(container_cpu_usage_seconds_total{container="ocr-gateway", namespace="default"}[1m])) / count(kube_pod_container_info{container="ocr-gateway", namespace="default"})
+

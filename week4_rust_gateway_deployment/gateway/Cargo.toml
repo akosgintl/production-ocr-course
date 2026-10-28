@@ -1,0 +1,24 @@
+[package]
+name = "ocr-gateway"
+version = "0.1.0"
+edition = "2021"
+authors = ["The Neural Maze <team@theneuralmaze.io>"]
+description = "High-performance Rust API Gateway for Baidu Unlimited-OCR vLLM Engine on AKS"
+
+[dependencies]
+axum = { version = "0.7", features = ["macros", "multipart"] }
+tokio = { version = "1.38", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22"
+regex = "1.10"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "timeout"] }
+tempfile = "3.10"
+anyhow = "1.0"
+thiserror = "1.0"
+futures-util = "0.3"
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-stream = "0.3"
